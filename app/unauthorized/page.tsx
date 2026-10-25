@@ -1,0 +1,1 @@
+export default function Unauthorized(){return <div className='rounded-2xl bg-white p-8 shadow'><h1 className='text-2xl font-bold'>Access unavailable</h1><p className='mt-2'>Your account is not authorized for this area. Please contact the coordinator.</p></div>}

@@ -1,0 +1,58 @@
+name: Supabase health check
+
+on:
+  schedule:
+    - cron: "17 8 * * *"
+    - cron: "23 14 * * *"
+    - cron: "41 20 * * *"
+    - cron: "53 2 * * *"
+
+  workflow_dispatch:
+
+jobs:
+  health-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Run Supabase activity check
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          set -euo pipefail
+
+          echo "Starting Supabase activity check at $(date -u)"
+
+          supabase_get () {
+            local path="$1"
+            echo "GET $path"
+            curl --fail --show-error --silent \
+              "$SUPABASE_URL/rest/v1/$path" \
+              --header "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+              --header "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+              --header "Accept: application/json" \
+              > /dev/null
+          }
+
+          echo "1. Recording health check write"
+          curl --fail --show-error --silent \
+            --request POST "$SUPABASE_URL/rest/v1/rpc/record_health_check" \
+            --header "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+            --header "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            --header "Content-Type: application/json" \
+            > /dev/null
+
+          echo "2. Reading health check row"
+          supabase_get "app_health_checks?select=id,last_checked_at,check_count&id=eq.supabase_keepalive&limit=1"
+
+          echo "3. Reading application tables"
+          supabase_get "school_years?select=id,label,is_active&limit=1"
+          supabase_get "blocks?select=id,label,status,is_current&limit=1"
+          supabase_get "teachers?select=id,teacher_name,is_active&limit=1"
+          supabase_get "students?select=id,student_name,school_year_id&limit=1"
+          supabase_get "club_offerings?select=id,club_title,block_id,is_active&limit=1"
+          supabase_get "student_submissions?select=id,student_id,block_id,is_latest&limit=1"
+          supabase_get "match_runs?select=id,block_id,status&limit=1"
+          supabase_get "users?select=id,email,role&limit=1"
+
+          echo "Supabase activity check completed at $(date -u)"
